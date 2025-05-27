@@ -6,6 +6,7 @@ local SoundService = game:GetService("SoundService")
 local Fusion = require(ReplicatedStorage.Packages.Fusion)
 local Controllers = require(ReplicatedStorage.Shared.Controllers)
 local ClientNet = require(ReplicatedStorage.Shared.ClientNet)
+local StoreData = require(ReplicatedStorage.Shared.StoreData)
 
 local CancelSFX: Sound = SoundService:WaitForChild("SFX"):WaitForChild("Cancel") :: Sound
 local PurchaseSFX: Sound = SoundService:WaitForChild("SFX"):WaitForChild("Purchase") :: Sound
@@ -63,6 +64,7 @@ function StoreClass.Equip(self: ClassType)
     end
 
     self.UIController:DeactivateShopButtons()
+    self.UIController:ChoosePlane(self._buttonFrame.Name)
 
     self._isEquipped:set(true)
 end
@@ -75,6 +77,14 @@ function StoreClass._connectThings(self: ClassType)
     Fusion.Hydrate(self._lock){
         Visible = Fusion.Computed(function()  
             return not self._isUnlocked:get()
+        end, Fusion.cleanup)
+    }
+
+    local textLabel: TextLabel = self._button:WaitForChild("Title") :: TextLabel
+    local data = StoreData[self._buttonFrame.Name]
+    Fusion.Hydrate(textLabel){
+        Text = Fusion.Computed(function()  
+            return if self._isUnlocked:get() then self._buttonFrame.Name else `{data[2]} {data[1]}`
         end, Fusion.cleanup)
     }
 

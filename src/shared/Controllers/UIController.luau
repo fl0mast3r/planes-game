@@ -26,6 +26,8 @@ local UIController = {
     _buttons = {} :: {[TextButton | ImageButton]: ButtonClass.ClassType},
     _parameters = {} :: {[Frame]: ParameterClass.ClassType},
     _shopButtons = {} :: {[Frame]: StoreClass.ClassType},
+
+    _choosenPlaneType = "Basic" :: string,
 }
 
 function UIController.Start(self: Controller)
@@ -57,6 +59,10 @@ function UIController.DeactivateShopButtons(self: Controller)
     for frame: Frame, object: StoreClass.ClassType in next, self._shopButtons do
         object:ForceDeactivate()
     end
+end
+
+function UIController.ChoosePlane(self: Controller, name: string)
+    self._choosenPlaneType = name
 end
 
 function UIController._buildUI(self: Controller)
@@ -111,12 +117,16 @@ function UIController._connectPlayButton(self: Controller)
 
     local playButton = self._launchFrame:WaitForChild("Launch"):WaitForChild("Play") :: TextButton
     playButton.MouseButton1Click:Connect(function()  
-        local teleportData: {[string]: number} = {}
+        local teleportData = {
+            ChoosenPlane = self._choosenPlaneType,
+            Parameters = {},
+        }
 
         for frame: Frame, object: ParameterClass.ClassType in next, self._parameters do
-            teleportData[frame.Name] = object:GetState()
+            teleportData.Parameters[frame.Name] = object:GetState()
         end
 
+        print(teleportData)
         TeleportService:Teleport(0, self._player, teleportData)
     end)
 end
