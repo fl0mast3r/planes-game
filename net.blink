@@ -1,0 +1,16 @@
+-- these can be ignored if you are using the studio plugin
+option ClientOutput = "src/shared/ClientNet.luau"
+option ServerOutput = "src/server/ServerNet.luau"
+option PromiseLibrary = "ReplicatedStorage.Packages.TypedPromise"
+
+event CatchSwitchingSlot {
+    from: Server,
+    type: Reliable,
+    call: SingleSync,
+    Data: unknown
+}
+
+function GrabData {
+    Yield: Promise,
+    Return: unknown
+}

@@ -5,8 +5,12 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Fusion = require(ReplicatedStorage.Packages.Fusion)
 local ButtonClass = require(ReplicatedStorage.Shared.Classes.ButtonClass)
 local ParameterClass = require(ReplicatedStorage.Shared.Classes.ParameterClass)
+local DataConfig = require(ReplicatedStorage.Shared.DataConfig)
+local Controllers = require(ReplicatedStorage.Shared.Controllers)
 
 local UIController = {
+    DataController = nil :: any,
+
     _player = Players.LocalPlayer :: Player,
     _playerUI = Players.LocalPlayer:WaitForChild("PlayerGui"):WaitForChild("UI") :: PlayerGui?,
 
@@ -20,6 +24,8 @@ local UIController = {
 }
 
 function UIController.Start(self: Controller)
+    self.DataController = Controllers:Get("DataController")
+
     if not self._playerUI then
         return
     end
@@ -34,12 +40,32 @@ function UIController.Start(self: Controller)
     self._launchFrame = self._mainFrame:WaitForChild("Launch") :: Frame
 
     self:_buildUI()
+
+    self.DataController.DataUpdated:Connect(function(newData: DataConfig.Type)
+        self:_updateCurrency(newData)
+    end)
 end
 
 function UIController._buildUI(self: Controller)
     self:_animateButtons()
     self:_animateSwitchButtons()
     self:_connectParameters()
+end
+
+function UIController._updateCurrency(self: Controller, newData)
+    if not self._moneyFrame then
+        return
+    end
+
+    local amountMoney = self._moneyFrame:WaitForChild("Main"):WaitForChild("Amount") :: TextLabel
+    amountMoney.Text = newData.Money
+
+    if not self._winsFrame then
+        return
+    end
+
+    local amountWins = self._winsFrame:WaitForChild("Main"):WaitForChild("Amount") :: TextLabel
+    amountWins.Text = newData.Wins
 end
 
 function UIController._connectParameters(self: Controller)
