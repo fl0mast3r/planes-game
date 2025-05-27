@@ -20,3 +20,10 @@ function GrabData {
     Yield: Promise,
     Return: Data
 }
+
+
+function Buy {
+    Yield: Promise,
+    Data: string,
+    Return: boolean
+}

@@ -150,6 +150,7 @@ local Queue: any = {
 
 Queue.Reliable[0] = table.create(256)
 Queue.Reliable[1] = table.create(256)
+Queue.Reliable[2] = table.create(256)
 export type Data = { Money: number, Wins: number, Unlocked: { string } }
 local function ReadEVENT_CatchSwitchingSlot(): ({ Money: number, Wins: number, Unlocked: { string } })
 	-- Read BLOCK: 6 bytes
@@ -212,6 +213,28 @@ local function ReadFUNCTION_RETURN_GrabData(): ({ Money: number, Wins: number, U
 	return Value
 end
 
+local function WriteFUNCTION_DATA_Buy(Value: string, InvocationIdentifier: number): ()
+	-- Allocate BLOCK: 4 bytes
+	local BLOCK_START = Allocate(4)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 2)
+	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
+	local Length = #Value
+	buffer.writeu16(SendBuffer, BLOCK_START + 2, Length)
+	Allocate(Length)
+	buffer.writestring(SendBuffer, SendOffset, Value, Length)
+end
+
+local function ReadFUNCTION_RETURN_Buy(): (boolean)
+	-- Read BLOCK: 2 bytes
+	local BLOCK_START = Read(2)
+	local Success = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
+	if Success ~= 1 then
+		error("Server encountered an error.")
+	end
+	local Value = (buffer.readu8(RecieveBuffer, BLOCK_START + 1) == 1)
+	return Value
+end
+
 if not RunService:IsRunning() then
 	local NOOP = function() end
 	local Returns = table.freeze({
@@ -219,6 +242,9 @@ if not RunService:IsRunning() then
 		On = NOOP
 	},
 	GrabData = {
+		Invoke = NOOP
+	},
+	Buy = {
 		Invoke = NOOP
 	},
 	})
@@ -286,6 +312,17 @@ Reliable.OnClientEvent:Connect(function(Buffer: buffer, Instances: {Instance})
 				task.spawn(Calls[InvocationIdentifier], Success, ReturnValue)
 				Calls[InvocationIdentifier] = nil
 			end
+		elseif Index == 2 then
+			-- Read BLOCK: 1 bytes
+			local BLOCK_START = Read(1)
+			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
+			if Calls[InvocationIdentifier] ~= nil then
+				local Success, ReturnValue = pcall(function ()
+					return ReadFUNCTION_RETURN_Buy()
+				end)
+				task.spawn(Calls[InvocationIdentifier], Success, ReturnValue)
+				Calls[InvocationIdentifier] = nil
+			end
 		end
 	end
 end)
@@ -334,6 +371,28 @@ local Returns = table.freeze({
 				local Success, ReturnValue: { Money: number, Wins: number, Unlocked: { string } } = coroutine.yield()
 				if Success ~= true then
 					Reject("There was an exception while processing \"GrabData\".")
+					return 
+				end
+				Resolve(ReturnValue)
+			end)
+		end
+	},
+	Buy = {
+		Invoke = function(Value: string): any
+			return Promise.new(function (Resolve, Reject, OnCancel)
+				local InvocationIdentifier = Invoke()
+				if Calls[InvocationIdentifier] ~= nil then
+					Invocations -= 1
+					error("More than 256 calls are awaiting a response, this packet has been dropped.")
+				end
+				WriteFUNCTION_DATA_Buy(Value, InvocationIdentifier)
+				Calls[InvocationIdentifier] = coroutine.running()
+				OnCancel(function ()
+					Calls[InvocationIdentifier] = nil
+				end)
+				local Success, ReturnValue: boolean = coroutine.yield()
+				if Success ~= true then
+					Reject("There was an exception while processing \"Buy\".")
 					return 
 				end
 				Resolve(ReturnValue)

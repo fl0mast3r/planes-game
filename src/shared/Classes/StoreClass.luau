@@ -5,8 +5,10 @@ local SoundService = game:GetService("SoundService")
 
 local Fusion = require(ReplicatedStorage.Packages.Fusion)
 local Controllers = require(ReplicatedStorage.Shared.Controllers)
+local ClientNet = require(ReplicatedStorage.Shared.ClientNet)
 
 local CancelSFX: Sound = SoundService:WaitForChild("SFX"):WaitForChild("Cancel") :: Sound
+local PurchaseSFX: Sound = SoundService:WaitForChild("SFX"):WaitForChild("Purchase") :: Sound
 
 local StoreClass = {}
 StoreClass.__index = StoreClass
@@ -78,11 +80,21 @@ function StoreClass._connectThings(self: ClassType)
 
     self._button.MouseButton1Click:Connect(function(...: any)
         if not self._isUnlocked:get() then
-            local cancelClone = CancelSFX:Clone()
-            cancelClone.Parent = CancelSFX.Parent
-            cancelClone:Destroy()
+            return ClientNet.Buy.Invoke(self._buttonFrame.Name):andThen(function(result: boolean)
+                if not result then
+                    local cancelClone = CancelSFX:Clone()
+                    cancelClone.Parent = CancelSFX.Parent
+                    cancelClone:Destroy()
 
-            return
+                    return
+                end
+
+                local purchaseClone = PurchaseSFX:Clone()
+                purchaseClone.Parent = PurchaseSFX.Parent
+                purchaseClone:Destroy()
+
+                self:Unlock()
+            end)
         end
 
         self:Equip()

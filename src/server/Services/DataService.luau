@@ -8,8 +8,9 @@ local ProfileService = require(ReplicatedStorage.Packages.ProfileService)
 local Observer = require(ReplicatedStorage.Packages.Observers)
 local Net = require(ServerScriptService.Server.ServerNet)
 local ProfileConfig = require(ReplicatedStorage.Shared.DataConfig)
+local StoreData = require(ReplicatedStorage.Shared.StoreData)
 
-local ProfileStore = ProfileService.GetProfileStore("PlayerData3", ProfileConfig)
+local ProfileStore = ProfileService.GetProfileStore("PlayerData4", ProfileConfig)
 
 local DataService = {
     Profiles = {},
@@ -61,6 +62,10 @@ function DataService.Start(self: Service)
 
         return self.Profiles[player].Data
     end)
+
+    Net.Buy.On(function(player: Player, name: string): (boolean)  
+        return self:Buy(player, name)
+    end)
 end
 
 function DataService.Get(self: Service, player: Player, index: string)
@@ -71,6 +76,27 @@ function DataService.Set(self: Service, player: Player, index: string, value: an
     self.Profiles[player].Data[index] = value
 
     Net.CatchSwitchingSlot.Fire(player, self.Profiles[player].Data)
+end
+
+function DataService.Buy(self: Service, player: Player, name: string): (boolean)
+    if not StoreData[name] then
+        return false
+    end
+
+    if StoreData[name][2] > self:Get(player, StoreData[name][1]) then
+        return false
+    end
+
+    local newData: {string} = table.clone(self:Get(player, "Unlocked"))
+    if table.find(newData, name) then
+        return false
+    end
+    
+    table.insert(newData, name)
+    self:Set(player, "Unlocked", newData)
+    self:Set(player, StoreData[name][1], self:Get(player, StoreData[name][1]) - StoreData[name][2])
+
+    return true
 end
 
 export type Service = typeof(DataService)
