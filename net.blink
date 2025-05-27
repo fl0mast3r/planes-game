@@ -3,14 +3,20 @@ option ClientOutput = "src/shared/ClientNet.luau"
 option ServerOutput = "src/server/ServerNet.luau"
 option PromiseLibrary = "ReplicatedStorage.Packages.TypedPromise"
 
+struct Data {
+    Money: u16,
+    Wins: u16,
+    Unlocked: string[]
+}
+
 event CatchSwitchingSlot {
     from: Server,
     type: Reliable,
     call: SingleSync,
-    Data: unknown
+    Data: Data
 }
 
 function GrabData {
     Yield: Promise,
-    Return: unknown
+    Return: Data
 }

@@ -9,7 +9,7 @@ local Observer = require(ReplicatedStorage.Packages.Observers)
 local Net = require(ServerScriptService.Server.ServerNet)
 local ProfileConfig = require(ReplicatedStorage.Shared.DataConfig)
 
-local ProfileStore = ProfileService.GetProfileStore("PlayerData2", ProfileConfig)
+local ProfileStore = ProfileService.GetProfileStore("PlayerData3", ProfileConfig)
 
 local DataService = {
     Profiles = {},

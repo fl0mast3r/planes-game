@@ -150,9 +150,29 @@ local Queue: any = {
 
 Queue.Reliable[0] = table.create(256)
 Queue.Reliable[1] = table.create(256)
-local function ReadEVENT_CatchSwitchingSlot(): (any)
-	RecieveInstanceCursor += 1
-	local Value = RecieveInstances[RecieveInstanceCursor]
+export type Data = { Money: number, Wins: number, Unlocked: { string } }
+local function ReadEVENT_CatchSwitchingSlot(): ({ Money: number, Wins: number, Unlocked: { string } })
+	-- Read BLOCK: 6 bytes
+	local BLOCK_START = Read(6)
+	local Value = {} :: any
+	Value.Money = buffer.readu16(RecieveBuffer, BLOCK_START + 0)
+	Value.Wins = buffer.readu16(RecieveBuffer, BLOCK_START + 2)
+	-- START ARRAY
+	local Length = buffer.readu16(RecieveBuffer, BLOCK_START + 4)
+	if Length < 0 then error(`Expected "Length" to be larger than 0, got {Length} instead.`) end
+	if Length > 65535 then error(`Expected "Length" to be smaller than 65535, got {Length} instead.`) end
+	Value.Unlocked = table.create(Length)
+		-- Read BLOCK: 2 bytes
+	local ARRAY_START_1 = Read(2 * Length)
+	for Index = 1, Length do
+		-- Read 2
+		local OPERATION_OFFSET = ARRAY_START_1
+		ARRAY_START_1 += 2
+		Length = buffer.readu16(RecieveBuffer, OPERATION_OFFSET)
+		local Item_1 = buffer.readstring(RecieveBuffer, Read(Length), Length)
+		table.insert(Value.Unlocked, Item_1)
+	end
+	-- END ARRAY
 	return Value
 end
 
@@ -163,15 +183,32 @@ local function WriteFUNCTION_DATA_GrabData(Value: nil, InvocationIdentifier: num
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 end
 
-local function ReadFUNCTION_RETURN_GrabData(): (any)
-	-- Read BLOCK: 1 bytes
-	local BLOCK_START = Read(1)
+local function ReadFUNCTION_RETURN_GrabData(): ({ Money: number, Wins: number, Unlocked: { string } })
+	-- Read BLOCK: 7 bytes
+	local BLOCK_START = Read(7)
 	local Success = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
 	if Success ~= 1 then
 		error("Server encountered an error.")
 	end
-	RecieveInstanceCursor += 1
-	local Value = RecieveInstances[RecieveInstanceCursor]
+	local Value = {} :: any
+	Value.Money = buffer.readu16(RecieveBuffer, BLOCK_START + 1)
+	Value.Wins = buffer.readu16(RecieveBuffer, BLOCK_START + 3)
+	-- START ARRAY
+	local Length = buffer.readu16(RecieveBuffer, BLOCK_START + 5)
+	if Length < 0 then error(`Expected "Length" to be larger than 0, got {Length} instead.`) end
+	if Length > 65535 then error(`Expected "Length" to be smaller than 65535, got {Length} instead.`) end
+	Value.Unlocked = table.create(Length)
+		-- Read BLOCK: 2 bytes
+	local ARRAY_START_1 = Read(2 * Length)
+	for Index = 1, Length do
+		-- Read 2
+		local OPERATION_OFFSET = ARRAY_START_1
+		ARRAY_START_1 += 2
+		Length = buffer.readu16(RecieveBuffer, OPERATION_OFFSET)
+		local Item_1 = buffer.readstring(RecieveBuffer, Read(Length), Length)
+		table.insert(Value.Unlocked, Item_1)
+	end
+	-- END ARRAY
 	return Value
 end
 
@@ -229,7 +266,7 @@ Reliable.OnClientEvent:Connect(function(Buffer: buffer, Instances: {Instance})
 		local BLOCK_START = Read(1)
 		local Index = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
 		if Index == 0 then
-			local Value: any = ReadEVENT_CatchSwitchingSlot()
+			local Value: { Money: number, Wins: number, Unlocked: { string } } = ReadEVENT_CatchSwitchingSlot()
 			if Events.Reliable[0] ~= nil then
 				Events.Reliable[0](Value)
 			else
@@ -270,7 +307,7 @@ local Returns = table.freeze({
 	StepReplication = StepReplication,
 
 	CatchSwitchingSlot = {
-		On = function(Listener: (Value: any) -> ()): () -> ()
+		On = function(Listener: (Value: { Money: number, Wins: number, Unlocked: { string } }) -> ()): () -> ()
 			Events.Reliable[0] = Listener
 			for Index, Arguments in Queue.Reliable[0] do
 				Listener(table.unpack(Arguments))
@@ -294,7 +331,7 @@ local Returns = table.freeze({
 				OnCancel(function ()
 					Calls[InvocationIdentifier] = nil
 				end)
-				local Success, ReturnValue: any = coroutine.yield()
+				local Success, ReturnValue: { Money: number, Wins: number, Unlocked: { string } } = coroutine.yield()
 				if Success ~= true then
 					Reject("There was an exception while processing \"GrabData\".")
 					return 

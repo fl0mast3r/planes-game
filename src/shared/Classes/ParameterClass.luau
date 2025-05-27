@@ -28,7 +28,11 @@ function ParameterClass.new(frame: Frame)
     return self
 end
 
-function ParameterClass._bindConnections(self: ClassType)
+function ParameterClass.GetState(self: ClassType): (number)
+    return self._state:get()
+end
+
+function ParameterClass._bindConnections(self: ClassType): ()
     for name: string, stateIndex: number in next, Enums.States.States do
         local button: TextButton = self._main:WaitForChild(name) :: TextButton
 
@@ -62,7 +66,7 @@ function ParameterClass._bindConnections(self: ClassType)
     end
 end
 
-function ParameterClass.Destroy(self: ClassType)
+function ParameterClass.Destroy(self: ClassType): ()
     
 end
 

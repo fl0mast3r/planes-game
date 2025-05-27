@@ -150,24 +150,57 @@ local Queue: any = {
 }
 
 Queue.Reliable[1] = table.create(256)
-local function WriteEVENT_CatchSwitchingSlot(Value: any): ()
-	-- Allocate BLOCK: 1 bytes
-	local BLOCK_START = Allocate(1)
+export type Data = { Money: number, Wins: number, Unlocked: { string } }
+local function WriteEVENT_CatchSwitchingSlot(Value: { Money: number, Wins: number, Unlocked: { string } }): ()
+	-- Allocate BLOCK: 7 bytes
+	local BLOCK_START = Allocate(7)
 	buffer.writeu8(SendBuffer, BLOCK_START + 0, 0)
-	table.insert(SendInstances, Value)
+	buffer.writeu16(SendBuffer, BLOCK_START + 1, Value.Money)
+	buffer.writeu16(SendBuffer, BLOCK_START + 3, Value.Wins)
+	-- START ARRAY
+	buffer.writeu16(SendBuffer, BLOCK_START + 5, #Value.Unlocked)
+		-- Allocate BLOCK: 2 bytes
+	local ARRAY_START_1 = Allocate(2 * #Value.Unlocked)
+	for Index = 1, #Value.Unlocked do
+		local Item_1 = Value.Unlocked[Index]
+		local Length = #Item_1
+		-- Allocate 2
+		local OPERATION_OFFSET = ARRAY_START_1
+		ARRAY_START_1 += 2
+		buffer.writeu16(SendBuffer, OPERATION_OFFSET, Length)
+		Allocate(Length)
+		buffer.writestring(SendBuffer, SendOffset, Item_1, Length)
+	end
+	-- END ARRAY
 end
 
 local function ReadFUNCTION_DATA_GrabData(): (nil)
 	return nil
 end
 
-local function WriteFUNCTION_RETURN_GrabData(Value: any, InvocationIdentifier: number): ()
-	-- Allocate BLOCK: 3 bytes
-	local BLOCK_START = Allocate(3)
+local function WriteFUNCTION_RETURN_GrabData(Value: { Money: number, Wins: number, Unlocked: { string } }, InvocationIdentifier: number): ()
+	-- Allocate BLOCK: 9 bytes
+	local BLOCK_START = Allocate(9)
 	buffer.writeu8(SendBuffer, BLOCK_START + 0, 1)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, 1)
-	table.insert(SendInstances, Value)
+	buffer.writeu16(SendBuffer, BLOCK_START + 3, Value.Money)
+	buffer.writeu16(SendBuffer, BLOCK_START + 5, Value.Wins)
+	-- START ARRAY
+	buffer.writeu16(SendBuffer, BLOCK_START + 7, #Value.Unlocked)
+		-- Allocate BLOCK: 2 bytes
+	local ARRAY_START_1 = Allocate(2 * #Value.Unlocked)
+	for Index = 1, #Value.Unlocked do
+		local Item_1 = Value.Unlocked[Index]
+		local Length = #Item_1
+		-- Allocate 2
+		local OPERATION_OFFSET = ARRAY_START_1
+		ARRAY_START_1 += 2
+		buffer.writeu16(SendBuffer, OPERATION_OFFSET, Length)
+		Allocate(Length)
+		buffer.writestring(SendBuffer, SendOffset, Item_1, Length)
+	end
+	-- END ARRAY
 end
 
 if not RunService:IsRunning() then
@@ -273,12 +306,12 @@ local Returns = table.freeze({
 	StepReplication = StepReplication,
 
 	CatchSwitchingSlot = {
-		Fire = function(Player: Player, Value: any): ()
+		Fire = function(Player: Player, Value: { Money: number, Wins: number, Unlocked: { string } }): ()
 			Load(PlayersMap[Player])
 			WriteEVENT_CatchSwitchingSlot(Value)
 			PlayersMap[Player] = Save()
 		end,
-		FireAll = function(Value: any): ()
+		FireAll = function(Value: { Money: number, Wins: number, Unlocked: { string } }): ()
 			Load()
 			WriteEVENT_CatchSwitchingSlot(Value)
 			local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
@@ -290,7 +323,7 @@ local Returns = table.freeze({
 				PlayersMap[Player] = Save()
 			end
 		end,
-		FireList = function(List: {Player}, Value: any): ()
+		FireList = function(List: {Player}, Value: { Money: number, Wins: number, Unlocked: { string } }): ()
 			Load()
 			WriteEVENT_CatchSwitchingSlot(Value)
 			local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
@@ -302,7 +335,7 @@ local Returns = table.freeze({
 				PlayersMap[Player] = Save()
 			end
 		end,
-		FireExcept = function(Except: Player, Value: any): ()
+		FireExcept = function(Except: Player, Value: { Money: number, Wins: number, Unlocked: { string } }): ()
 			Load()
 			WriteEVENT_CatchSwitchingSlot(Value)
 			local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
@@ -319,9 +352,9 @@ local Returns = table.freeze({
 		end,
 	},
 	GrabData = {
-		On = function(Listener: (Player, nil) -> (any)): ()
+		On = function(Listener: (Player, nil) -> ({ Money: number, Wins: number, Unlocked: { string } })): ()
 			Events.Reliable[1] = function(Player: Player, Value: nil, InvocationIdentifier: number): ()
-				local ReturnValue: any;
+				local ReturnValue: { Money: number, Wins: number, Unlocked: { string } };
 				local Success, Error = pcall(function ()
 					ReturnValue = Listener(Player, Value)
 				end)
