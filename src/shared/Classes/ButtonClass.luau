@@ -1,9 +1,14 @@
 --!strict
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local SoundService = game:GetService("SoundService")
 
 local Fusion = require(ReplicatedStorage.Packages.Fusion)
 local Promise = require(ReplicatedStorage.Packages.TypedPromise)
+
+local Sounds = SoundService:WaitForChild("SFX") :: SoundGroup
+local ClickSFX = Sounds:WaitForChild("Pop") :: SoundEffect
+local HoverSFX = Sounds:WaitForChild("MouseEnter") :: SoundEffect
 
 local ButtonClass = {}
 ButtonClass.__index = ButtonClass
@@ -47,6 +52,10 @@ function ButtonClass._bindMethods(self: ClassType)
             self._animationPromise = nil
         end
 
+        local sound = HoverSFX:Clone()
+        sound.Parent = Sounds
+        sound:Destroy()
+
         self._size:set(UDim2.fromScale(self.OriginalSize.X.Scale * 1.03, self.OriginalSize.Y.Scale * 1.03))
     end)
 
@@ -64,6 +73,10 @@ function ButtonClass._bindMethods(self: ClassType)
             self._animationPromise:cancel()
             self._animationPromise = nil
         end
+
+        local sound = ClickSFX:Clone()
+        sound.Parent = Sounds
+        sound:Destroy()
 
         self._animationPromise = Promise.try(function(...)  
             self._size:set(UDim2.fromScale(self.OriginalSize.X.Scale / 1.1, self.OriginalSize.Y.Scale / 1.1))
