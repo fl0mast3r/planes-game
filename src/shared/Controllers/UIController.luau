@@ -22,6 +22,7 @@ local UIController = {
     _winsFrame = nil :: Frame?,
     _launchFrame = nil :: Frame?,
     _shopFrame = nil :: Frame?,
+    _gameTitle = nil :: TextLabel?,
 
     _buttons = {} :: {[TextButton | ImageButton]: ButtonClass.ClassType},
     _parameters = {} :: {[Frame]: ParameterClass.ClassType},
@@ -47,6 +48,7 @@ function UIController.Start(self: Controller)
     self._moneyFrame = self._mainFrame:WaitForChild("Money") :: Frame
     self._winsFrame = self._mainFrame:WaitForChild("Wins") :: Frame
     self._launchFrame = self._mainFrame:WaitForChild("Launch") :: Frame
+    self._gameTitle = self._mainFrame:WaitForChild("Title") :: TextLabel
 
     self:_buildUI()
 
@@ -71,6 +73,64 @@ function UIController._buildUI(self: Controller)
     self:_connectParameters()
     self:_connectPlayButton()
     self:_bindShopButtons()
+    self:_bindGameStart()
+end
+
+function UIController._bindGameStart(self: Controller)
+    if not self._launchFrame then
+        return
+    end
+
+    local isLoaded = Fusion.Value(false)
+    task.delay(1, function() 
+        isLoaded:set(true)
+    end)
+
+    self._launchFrame.Position = UDim2.fromScale(0.5, 1.6)
+    Fusion.Hydrate(self._launchFrame){
+        Position = Fusion.Spring(Fusion.Computed(function()  
+            return if isLoaded:get() then UDim2.fromScale(0.5, 0.5) else UDim2.fromScale(0.5, 1.6)
+        end, Fusion.cleanup), 10, 0.6)
+    }
+
+    if not self._winsFrame then
+        return
+    end
+
+    self._winsFrame.Position = UDim2.fromScale(0.597, 1.805)
+    Fusion.Hydrate(self._winsFrame){
+        Position = Fusion.Spring(Fusion.Computed(function()  
+            return if isLoaded:get() then UDim2.fromScale(0.597, 0.805) else UDim2.fromScale(0.597, 1.805)
+        end, Fusion.cleanup), 10, 0.6)
+    }
+
+
+    if not self._moneyFrame then
+        return
+    end
+
+    self._moneyFrame.Position = UDim2.fromScale(0.417, 1.805)
+    Fusion.Hydrate(self._moneyFrame){
+        Position = Fusion.Spring(Fusion.Computed(function()  
+            return if isLoaded:get() then UDim2.fromScale(0.417, 0.805) else UDim2.fromScale(0.417, 1.805)
+        end, Fusion.cleanup), 10, 0.6)
+    }
+
+    if not self._gameTitle then
+        return
+    end
+
+    local isDoneText = Fusion.Value(false)
+    task.delay(1.25, function() 
+        isDoneText:set(true)
+    end)
+
+    self._gameTitle.Position = UDim2.fromScale(0.5, -0.3)
+    Fusion.Hydrate(self._gameTitle){
+        Position = Fusion.Spring(Fusion.Computed(function()  
+            return if isDoneText:get() then UDim2.fromScale(0.5, 0.1) else UDim2.fromScale(0.5, -0.3)
+        end, Fusion.cleanup), 15, 1)
+    }
 end
 
 function UIController._bindShopButtons(self: Controller)
