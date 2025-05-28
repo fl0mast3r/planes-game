@@ -116,6 +116,36 @@ function UIController._connectPlayButton(self: Controller)
     end
 
     local playButton = self._launchFrame:WaitForChild("Launch"):WaitForChild("Play") :: TextButton
+    Fusion.Hydrate(playButton){
+        BackgroundColor3 = Fusion.Computed(function()  
+            return if not self._buttons[playButton].Activated:get() then Color3.fromRGB(34, 207, 63) else Color3.fromRGB(91, 91, 91)
+        end, Fusion.cleanup)
+    }
+
+    Fusion.Hydrate(playButton:WaitForChild("Main")){
+        BackgroundColor3 = Fusion.Computed(function()  
+            return if not self._buttons[playButton].Activated:get() then Color3.fromRGB(57, 255, 17) else Color3.fromRGB(125, 125, 125)
+        end, Fusion.cleanup)
+    }
+
+    Fusion.Hydrate(playButton:WaitForChild("Main"):WaitForChild("Title"):WaitForChild("UIStroke")){
+        Color = Fusion.Computed(function()  
+            return if not self._buttons[playButton].Activated:get() then Color3.fromRGB(6, 83, 2) else Color3.fromRGB(51, 51, 51)
+        end, Fusion.cleanup)
+    }
+
+    Fusion.Hydrate(playButton:WaitForChild("UIStroke")){
+        Color = Fusion.Computed(function()  
+            return if not self._buttons[playButton].Activated:get() then Color3.fromRGB(6, 83, 2) else Color3.fromRGB(51, 51, 51)
+        end, Fusion.cleanup)
+    }
+
+    Fusion.Hydrate(playButton:WaitForChild("Main"):WaitForChild("Title")){
+        Text = Fusion.Computed(function()  
+            return if not self._buttons[playButton].Activated:get() then`Play` else `Loading...`
+        end, Fusion.cleanup)
+    }
+
     playButton.MouseButton1Click:Connect(function()  
         local teleportData = {
             ChoosenPlane = self._choosenPlaneType,
@@ -126,8 +156,15 @@ function UIController._connectPlayButton(self: Controller)
             teleportData.Parameters[frame.Name] = object:GetState()
         end
 
-        print(teleportData)
-        TeleportService:Teleport(0, self._player, teleportData)
+        if self._buttons[playButton].Activated:get() then
+            return
+        end
+
+        self._buttons[playButton].Activated:set(true)
+        self._buttons[playButton].OriginalSize = UDim2.fromScale(self._buttons[playButton].OriginalSize.X.Scale / 1.1, self._buttons[playButton].OriginalSize.Y.Scale / 1.1)
+        self._buttons[playButton]:RenderChanges()
+
+        TeleportService:Teleport(101095476783459, self._player, teleportData)
     end)
 end
 
