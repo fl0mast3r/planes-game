@@ -151,6 +151,7 @@ local Queue: any = {
 
 Queue.Reliable[1] = table.create(256)
 Queue.Reliable[2] = table.create(256)
+Queue.Reliable[3] = table.create(256)
 export type Data = { Money: number, Wins: number, Unlocked: { string } }
 local function WriteEVENT_CatchSwitchingSlot(Value: { Money: number, Wins: number, Unlocked: { string } }): ()
 	-- Allocate BLOCK: 7 bytes
@@ -175,6 +176,13 @@ local function WriteEVENT_CatchSwitchingSlot(Value: { Money: number, Wins: numbe
 	-- END ARRAY
 end
 
+local function ReadEVENT_Award(): (number)
+	-- Read BLOCK: 2 bytes
+	local BLOCK_START = Read(2)
+	local Value = buffer.readu16(RecieveBuffer, BLOCK_START + 0)
+	return Value
+end
+
 local function ReadFUNCTION_DATA_GrabData(): (nil)
 	return nil
 end
@@ -182,7 +190,7 @@ end
 local function WriteFUNCTION_RETURN_GrabData(Value: { Money: number, Wins: number, Unlocked: { string } }, InvocationIdentifier: number): ()
 	-- Allocate BLOCK: 9 bytes
 	local BLOCK_START = Allocate(9)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 1)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 2)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, 1)
 	buffer.writeu16(SendBuffer, BLOCK_START + 3, Value.Money)
@@ -215,7 +223,7 @@ end
 local function WriteFUNCTION_RETURN_Buy(Value: boolean, InvocationIdentifier: number): ()
 	-- Allocate BLOCK: 4 bytes
 	local BLOCK_START = Allocate(4)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 2)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 3)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, 1)
 	buffer.writeu8(SendBuffer, BLOCK_START + 3, Value and 1 or 0)
@@ -229,6 +237,9 @@ if not RunService:IsRunning() then
 		FireAll = NOOP,
 		FireList = NOOP,
 		FireExcept = NOOP
+	},
+	Award = {
+		On = NOOP
 	},
 	GrabData = {
 		On = NOOP
@@ -294,30 +305,40 @@ Reliable.OnServerEvent:Connect(function(Player: Player, Buffer: buffer, Instance
 		local BLOCK_START = Read(1)
 		local Index = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
 		if Index == 1 then
-			-- Read BLOCK: 1 bytes
-			local BLOCK_START = Read(1)
-			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
-			local Value: nil = ReadFUNCTION_DATA_GrabData()
+			local Value: number = ReadEVENT_Award()
 			if Events.Reliable[1] ~= nil then
-				Events.Reliable[1](Player, Value, InvocationIdentifier)
+				Events.Reliable[1](Player, Value)
 			else
 				if #Queue.Reliable[1] > 256 then
-					warn("[Blink]: Event queue of \"GrabData\" exceeded 256, did you forget to implement a listener?")
+					warn("[Blink]: Event queue of \"Award\" exceeded 256, did you forget to implement a listener?")
 				end
-				table.insert(Queue.Reliable[1], {Player, Value, InvocationIdentifier} :: {any})
+				table.insert(Queue.Reliable[1], {Player, Value} :: {any})
 			end
 		elseif Index == 2 then
 			-- Read BLOCK: 1 bytes
 			local BLOCK_START = Read(1)
 			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
-			local Value: string = ReadFUNCTION_DATA_Buy()
+			local Value: nil = ReadFUNCTION_DATA_GrabData()
 			if Events.Reliable[2] ~= nil then
 				Events.Reliable[2](Player, Value, InvocationIdentifier)
 			else
 				if #Queue.Reliable[2] > 256 then
-					warn("[Blink]: Event queue of \"Buy\" exceeded 256, did you forget to implement a listener?")
+					warn("[Blink]: Event queue of \"GrabData\" exceeded 256, did you forget to implement a listener?")
 				end
 				table.insert(Queue.Reliable[2], {Player, Value, InvocationIdentifier} :: {any})
+			end
+		elseif Index == 3 then
+			-- Read BLOCK: 1 bytes
+			local BLOCK_START = Read(1)
+			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
+			local Value: string = ReadFUNCTION_DATA_Buy()
+			if Events.Reliable[3] ~= nil then
+				Events.Reliable[3](Player, Value, InvocationIdentifier)
+			else
+				if #Queue.Reliable[3] > 256 then
+					warn("[Blink]: Event queue of \"Buy\" exceeded 256, did you forget to implement a listener?")
+				end
+				table.insert(Queue.Reliable[3], {Player, Value, InvocationIdentifier} :: {any})
 			end
 		end
 	end
@@ -385,38 +406,22 @@ local Returns = table.freeze({
 			end
 		end,
 	},
-	GrabData = {
-		On = function(Listener: (Player, nil) -> ({ Money: number, Wins: number, Unlocked: { string } })): ()
-			Events.Reliable[1] = function(Player: Player, Value: nil, InvocationIdentifier: number): ()
-				local ReturnValue: { Money: number, Wins: number, Unlocked: { string } };
-				local Success, Error = pcall(function ()
-					ReturnValue = Listener(Player, Value)
-				end)
-				Load(PlayersMap[Player])
-				if Success ~= true then
-					local Position = Allocate(3)
-					buffer.writeu8(SendBuffer, Position, 1)
-					buffer.writeu8(SendBuffer, Position + 1, InvocationIdentifier)
-					buffer.writeu8(SendBuffer, Position + 2, 0)
-					warn(`"GrabData" encountered an error, {Error}`)
-				else
-					WriteFUNCTION_RETURN_GrabData(ReturnValue, InvocationIdentifier)
-				end
-				PlayersMap[Player] = Save()
+	Award = {
+		On = function(Listener: (Player: Player, Value: number) -> ()): () -> ()
+			Events.Reliable[1] = Listener
+			for Index, Arguments in Queue.Reliable[1] do
+				Listener(table.unpack(Arguments))
 			end
-			task.spawn(function (): ()
-				local EventQueue = Queue.Reliable[1] or {}
-				Queue.Reliable[1] = nil
-				for Index, Arguments in EventQueue do
-					Events.Reliable[1](table.unpack(Arguments))
-				end
-			end)
+			Queue.Reliable[1] = {}
+			return function (): ()
+				Events.Reliable[1] = nil
+			end
 		end
 	},
-	Buy = {
-		On = function(Listener: (Player, string) -> (boolean)): ()
-			Events.Reliable[2] = function(Player: Player, Value: string, InvocationIdentifier: number): ()
-				local ReturnValue: boolean;
+	GrabData = {
+		On = function(Listener: (Player, nil) -> ({ Money: number, Wins: number, Unlocked: { string } })): ()
+			Events.Reliable[2] = function(Player: Player, Value: nil, InvocationIdentifier: number): ()
+				local ReturnValue: { Money: number, Wins: number, Unlocked: { string } };
 				local Success, Error = pcall(function ()
 					ReturnValue = Listener(Player, Value)
 				end)
@@ -426,9 +431,9 @@ local Returns = table.freeze({
 					buffer.writeu8(SendBuffer, Position, 2)
 					buffer.writeu8(SendBuffer, Position + 1, InvocationIdentifier)
 					buffer.writeu8(SendBuffer, Position + 2, 0)
-					warn(`"Buy" encountered an error, {Error}`)
+					warn(`"GrabData" encountered an error, {Error}`)
 				else
-					WriteFUNCTION_RETURN_Buy(ReturnValue, InvocationIdentifier)
+					WriteFUNCTION_RETURN_GrabData(ReturnValue, InvocationIdentifier)
 				end
 				PlayersMap[Player] = Save()
 			end
@@ -437,6 +442,34 @@ local Returns = table.freeze({
 				Queue.Reliable[2] = nil
 				for Index, Arguments in EventQueue do
 					Events.Reliable[2](table.unpack(Arguments))
+				end
+			end)
+		end
+	},
+	Buy = {
+		On = function(Listener: (Player, string) -> (boolean)): ()
+			Events.Reliable[3] = function(Player: Player, Value: string, InvocationIdentifier: number): ()
+				local ReturnValue: boolean;
+				local Success, Error = pcall(function ()
+					ReturnValue = Listener(Player, Value)
+				end)
+				Load(PlayersMap[Player])
+				if Success ~= true then
+					local Position = Allocate(3)
+					buffer.writeu8(SendBuffer, Position, 3)
+					buffer.writeu8(SendBuffer, Position + 1, InvocationIdentifier)
+					buffer.writeu8(SendBuffer, Position + 2, 0)
+					warn(`"Buy" encountered an error, {Error}`)
+				else
+					WriteFUNCTION_RETURN_Buy(ReturnValue, InvocationIdentifier)
+				end
+				PlayersMap[Player] = Save()
+			end
+			task.spawn(function (): ()
+				local EventQueue = Queue.Reliable[3] or {}
+				Queue.Reliable[3] = nil
+				for Index, Arguments in EventQueue do
+					Events.Reliable[3](table.unpack(Arguments))
 				end
 			end)
 		end

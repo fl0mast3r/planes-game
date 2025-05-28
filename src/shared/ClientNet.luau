@@ -149,8 +149,8 @@ local Queue: any = {
 }
 
 Queue.Reliable[0] = table.create(256)
-Queue.Reliable[1] = table.create(256)
 Queue.Reliable[2] = table.create(256)
+Queue.Reliable[3] = table.create(256)
 export type Data = { Money: number, Wins: number, Unlocked: { string } }
 local function ReadEVENT_CatchSwitchingSlot(): ({ Money: number, Wins: number, Unlocked: { string } })
 	-- Read BLOCK: 6 bytes
@@ -177,10 +177,17 @@ local function ReadEVENT_CatchSwitchingSlot(): ({ Money: number, Wins: number, U
 	return Value
 end
 
+local function WriteEVENT_Award(Value: number): ()
+	-- Allocate BLOCK: 3 bytes
+	local BLOCK_START = Allocate(3)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 1)
+	buffer.writeu16(SendBuffer, BLOCK_START + 1, Value)
+end
+
 local function WriteFUNCTION_DATA_GrabData(Value: nil, InvocationIdentifier: number): ()
 	-- Allocate BLOCK: 2 bytes
 	local BLOCK_START = Allocate(2)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 1)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 2)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 end
 
@@ -216,7 +223,7 @@ end
 local function WriteFUNCTION_DATA_Buy(Value: string, InvocationIdentifier: number): ()
 	-- Allocate BLOCK: 4 bytes
 	local BLOCK_START = Allocate(4)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 2)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 3)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 	local Length = #Value
 	buffer.writeu16(SendBuffer, BLOCK_START + 2, Length)
@@ -240,6 +247,9 @@ if not RunService:IsRunning() then
 	local Returns = table.freeze({
 	CatchSwitchingSlot = {
 		On = NOOP
+	},
+	Award = {
+		Fire = NOOP
 	},
 	GrabData = {
 		Invoke = NOOP
@@ -301,7 +311,7 @@ Reliable.OnClientEvent:Connect(function(Buffer: buffer, Instances: {Instance})
 				end
 				table.insert(Queue.Reliable[0], {Value} :: {any})
 			end
-		elseif Index == 1 then
+		elseif Index == 2 then
 			-- Read BLOCK: 1 bytes
 			local BLOCK_START = Read(1)
 			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
@@ -312,7 +322,7 @@ Reliable.OnClientEvent:Connect(function(Buffer: buffer, Instances: {Instance})
 				task.spawn(Calls[InvocationIdentifier], Success, ReturnValue)
 				Calls[InvocationIdentifier] = nil
 			end
-		elseif Index == 2 then
+		elseif Index == 3 then
 			-- Read BLOCK: 1 bytes
 			local BLOCK_START = Read(1)
 			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
@@ -353,6 +363,11 @@ local Returns = table.freeze({
 			return function (): ()
 				Events.Reliable[0] = nil
 			end
+		end
+	},
+	Award = {
+		Fire = function(Value: number): ()
+			WriteEVENT_Award(Value)
 		end
 	},
 	GrabData = {

@@ -66,9 +66,14 @@ function DataService.Start(self: Service)
     Net.Buy.On(function(player: Player, name: string): (boolean)  
         return self:Buy(player, name)
     end)
+
+    Net.Award.On(function(player: Player, moneyGained: number)
+        self:Set(player, "Money", self:Get(player, "Money") + moneyGained)
+        self:Set(player, "Wins", self:Get(player, "Wins") + 1)
+    end)
 end
 
-function DataService.Get(self: Service, player: Player, index: string)
+function DataService.Get(self: Service, player: Player, index: string): any
     return self.Profiles[player].Data[index]
 end
 

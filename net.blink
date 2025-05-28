@@ -16,11 +16,17 @@ event CatchSwitchingSlot {
     Data: Data
 }
 
+event Award {
+    from: Client,
+    type: Reliable,
+    call: SingleSync,
+    Data: u16,
+}
+
 function GrabData {
     Yield: Promise,
     Return: Data
 }
-
 
 function Buy {
     Yield: Promise,

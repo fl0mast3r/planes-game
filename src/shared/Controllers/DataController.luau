@@ -1,5 +1,6 @@
 --!strict
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TeleportService = game:GetService("TeleportService")
 
 local Net = require(ReplicatedStorage.Shared.ClientNet)
 local DataConfig = require(ReplicatedStorage.Shared.DataConfig)
@@ -22,6 +23,11 @@ function DataController.Start(self: Controller)
 
         self.DataUpdated:Fire(result)
     end)
+
+    local moneyGained: number = TeleportService:GetLocalPlayerTeleportData()
+    if moneyGained and typeof(moneyGained) == "number" then
+        Net.Award.Fire(moneyGained)
+    end
 end
 
 function DataController.Get(self: Controller)
